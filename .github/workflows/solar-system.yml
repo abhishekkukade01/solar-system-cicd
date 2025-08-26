@@ -12,6 +12,17 @@ env:
        MONGO_PASSWORD: ${{ secrets.MONGO_PASSWORD }}
 jobs:
   unit-testing:
+        services:
+          mongo-db:
+            # Docker Hub image
+            image: siddharth67/mongo-db:non-prod
+            ports:
+              - 27027:27017
+            env:
+                MONGO_URI: 'mongodb://localhost:27017/superData'
+                MONGO_USERNAME: non-prod-user
+                MONGO_PASSWORD: non-prod-password
+          
         name: Unit Testing
         runs-on: ubuntu-latest
         steps:
