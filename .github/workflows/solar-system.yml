@@ -132,6 +132,4 @@ jobs:
             - name: Azure Login
               uses: azure/login@v2
               with:
-                client-id: ${{ vars.KAZURE_CLIENT_ID }}
-                tenant-id: ${{ vars.KAZURE_TENANT_ID }}
-                secret: ${{ secrets.KAZURE_CLIENT_SECRET }}
+                creds: ${{ secrets.AZURE_CREDENTIALS }}
