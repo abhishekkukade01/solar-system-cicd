@@ -4,7 +4,7 @@ metadata:
   labels:
     app: solar-system
   name: solar-system
-  namespace: ${NAMESPACE}
+  namespace: staging
 spec:
   replicas: 1
   selector:
@@ -17,7 +17,7 @@ spec:
         app: solar-system
     spec:
       containers:
-      - image: ${K8S_IMAGE}
+      - image: cicdspringboot.azurecr.io/solar-system:latest
         imagePullPolicy: Always
         name: solar-system
         ports:
