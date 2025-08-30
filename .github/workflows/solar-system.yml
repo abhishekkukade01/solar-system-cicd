@@ -1,0 +1,153 @@
+name: Solar System Workflow
+
+on: 
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - 'feature/*'
+env:
+       MONGO_URI: 'mongodb+srv://supercluster.d83jj.mongodb.net/superData'
+       MONGO_USERNAME: ${{ vars.MONGO_USERNAME }}
+       MONGO_PASSWORD: ${{ secrets.MONGO_PASSWORD }}
+jobs:
+  unit-testing:
+        services:
+          mongo-db:
+            # Docker Hub image
+            image: siddharth67/mongo-db:non-prod
+            ports:
+              - 27027:27017
+            env:
+                MONGO_URI: 'mongodb://localhost:27017/superData'
+                MONGO_USERNAME: non-prod-user
+                MONGO_PASSWORD: non-prod-password
+          
+        name: Unit Testing
+        runs-on: ubuntu-latest
+        steps:
+        - name: Checkout Repository
+          uses: actions/checkout@v4
+
+        - name: Setup NodeJS Version
+          uses: actions/setup-node@v3
+          with:
+            node-version: 20
+            
+        - uses: actions/cache@v4
+          id: npm-cache # use this to check for `cache-hit` ==> if: steps.npm-cache.outputs.cache-hit != 'true'
+          with:
+            path: node_modeles
+            key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+    
+        - name: Install Dependencies
+          run: npm install
+    
+        - name: Unit Testing
+          id: unit-test
+          run: npm test
+        
+        - name: Archive test Result
+          if : always()
+          uses: actions/upload-artifact@v4
+          with:
+            name: Mocha-Test-Result
+            path: test-results.xml
+
+  code-coverage:
+        name: code coverage
+        container:
+              image: node:18
+        services:
+          mongo-db:
+            # Docker Hub image
+            image: siddharth67/mongo-db:non-prod
+            options:
+                --name mongo
+            env:
+                MONGO_URI: 'mongodb://mongo:27017/superData'
+                MONGO_USERNAME: non-prod-user
+                MONGO_PASSWORD: non-prod-password
+          
+        runs-on: ubuntu-latest
+        steps:
+        - name: Checkout Repository
+          uses: actions/checkout@v4
+
+        - name: Setup NodeJS Version
+          uses: actions/setup-node@v3
+          with:
+            node-version: 20
+         
+        - uses: actions/cache@v4
+          id: npm-cache # use this to check for `cache-hit` ==> if: steps.npm-cache.outputs.cache-hit != 'true'
+          with:
+            path: node_modeles
+            key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+            
+            
+    
+        - name: Install Dependencies
+          run: npm install
+    
+        - name: Unit Testing
+          continue-on-error: true
+          run: npm run coverage
+        
+        - name: Archive test Result
+          uses: actions/upload-artifact@v4
+          with:
+            name: code-coverage-result
+            path: coverage
+          
+  docker-login:
+        runs-on: ubuntu-latest
+        needs: [unit-testing,code-coverage]
+        steps:
+       
+        - name: Checkout Repository
+          uses: actions/checkout@v4 
+           
+        - name: Login to ACR
+          uses: docker/login-action@v3
+          with:
+           registry: cicdspringboot.azurecr.io
+           username: ${{ vars.AZURE_CLIENT_ID }}
+           password: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+        - name: Build and Push Docker Image
+          uses: docker/build-push-action@v6
+          with:
+            context: .
+            push: true
+            tags: 
+              cicdspringboot.azurecr.io/solar-system:${{ github.sha }}
+
+  deploy-to-aks:
+          runs-on: ubuntu-latest
+          needs: docker-login
+          steps:
+            - name: Checkout Repository
+              uses: actions/checkout@v4
+
+            - name: Azure Login
+              uses: azure/login@v2
+              with:
+                creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+            - name: Get AKS Credentials
+              run: |
+                az aks get-credentials \
+                  --resource-group springboot-cicd \
+                  --name Solar-aks \
+                  --overwrite-existing
+            - name: Update Kubernetes manifest with image tag
+              run: |
+                sed -i "s|cicdspringboot.azurecr.io/solar-system:.*|cicdspringboot.azurecr.io/solar-system:${{ github.sha }}|g" kubernetes/staging/deployment.yaml
+
+            - name: Deploy to AKS
+             
+              run: |
+                kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
+                kubectl apply -f kubernetes/staging/deployment.yaml
+                kubectl apply -f kubernetes/staging/service.yaml
