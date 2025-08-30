@@ -142,14 +142,8 @@ jobs:
                   --overwrite-existing
 
             - name: Deploy to AKS
+             
               run: |
                 kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
-                K8S_IMAGE_TAG=${{ github.sha }}
-                INGRESS_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-                NAMESPACE=staging
-                REPLICAS=1
-
-                # Replace placeholders and apply manifests
-                for file in kubernetes/staging/*.yaml; do
-                  sed "s|\${NAMESPACE}|$NAMESPACE|g; s|\${REPLICAS}|$REPLICAS|g; s|\${K8S_IMAGE_TAG}|$K8S_IMAGE_TAG|g; s|\${INGRESS_IP}|$INGRESS_IP|g" $file | kubectl apply -f -
-                done
+                kubectl apply -f kubernetes/staging/deployment.yaml
+                kubectl apply -f kubernetes/staging/service.yaml
