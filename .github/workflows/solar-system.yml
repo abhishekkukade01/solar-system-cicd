@@ -120,7 +120,9 @@ jobs:
           with:
             context: .
             push: true
-            tags: cicdspringboot.azurecr.io/solar-system:${{ github.sha }}
+            tags: |
+              cicdspringboot.azurecr.io/solar-system:latest
+              cicdspringboot.azurecr.io/solar-system:${{ github.sha }}
 
   deploy-to-aks:
           runs-on: ubuntu-latest
