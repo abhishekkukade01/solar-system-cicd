@@ -121,3 +121,17 @@ jobs:
             context: .
             push: true
             tags: cicdspringboot.azurecr.io/solar-system:${{ github.sha }}
+
+  deploy-to-aks:
+          runs-on: ubuntu-latest
+          needs: docker-login
+          steps:
+            - name: Checkout Repository
+              uses: actions/checkout@v4
+
+            - name: Azure Login
+              uses: azure/login@v2
+              with:
+                client-id: ${{ vars.KAZURE_CLIENT_ID }}
+                tenant-id: ${{ vars.KAZURE_TENANT_ID }}
+                secret: ${{ secrets.KAZURE_CLIENT_SECRET }}
